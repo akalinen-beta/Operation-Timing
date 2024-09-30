@@ -1,83 +1,49 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { uptimeCategories, unuptimeCategories } from './categories';
 import TimerButton from './TimerButton';
 import TimerEntries from './TimerEntries';
 import ControlPanel from './ControlPanel';
 
+// Global variable for minimum timer duration
+const MINIMUM_TIMER_DURATION = 5; // seconds
+
 const ManufacturingTimerApp = () => {
   const [timers, setTimers] = useState({});
   const [activeTimer, setActiveTimer] = useState(null);
   const [timeEntries, setTimeEntries] = useState([]);
-  const [showSavePopup, setShowSavePopup] = useState(false);
+  const [lastPressTime, setLastPressTime] = useState(0); // To track the time the button was last pressed
+  const [previousTimerValue, setPreviousTimerValue] = useState(null); // Store the previous timer value before the button press
 
-  // Use refs to store the latest state values without causing effect re-runs
   const timersRef = useRef(timers);
   const activeTimerRef = useRef(activeTimer);
 
-  // Update refs when state changes
+  // Keep references to timers and activeTimer updated to avoid stale values
   useEffect(() => {
     timersRef.current = timers;
     activeTimerRef.current = activeTimer;
   }, [timers, activeTimer]);
 
-  // Function to save the current state to localStorage
-  const saveStateToLocalStorage = useCallback(() => {
-    console.log("Saving state to localStorage");
-    localStorage.setItem('timers', JSON.stringify(timersRef.current));
-    localStorage.setItem('activeTimer', activeTimerRef.current);
-    localStorage.setItem('lastUpdateTime', Date.now().toString());
-
-    // Show the "Timer state saved" popup
-    //setShowSavePopup(true);
-    setTimeout(() => {
-      setShowSavePopup(false); // Hide after 2 seconds
-    }, 500);
-  }, []); // Empty dependency array as it now uses refs
-
-  // Load saved state from localStorage when the app starts
+  // Start an interval to update the active timer every 100ms (0.1 seconds)
   useEffect(() => {
-    console.log("Loading saved state from localStorage");
-    const savedTimers = JSON.parse(localStorage.getItem('timers')) || {};
-    const savedActiveTimer = localStorage.getItem('activeTimer') || null;
-    const savedLastUpdateTime = localStorage.getItem('lastUpdateTime') || null;
-
-    if (savedTimers && savedActiveTimer && savedLastUpdateTime) {
-      const timeSinceLastUpdate = (Date.now() - parseInt(savedLastUpdateTime)) / 1000; // in seconds
-      console.log("Time since last update:", timeSinceLastUpdate);
-
-      // Update the timer for the active timer to include the time passed while the app was closed
-      if (savedActiveTimer && savedTimers[savedActiveTimer] != null) {
-        savedTimers[savedActiveTimer] = (savedTimers[savedActiveTimer] || 0) + timeSinceLastUpdate;
-      }
-
-      setTimers(savedTimers);
-      setActiveTimer(savedActiveTimer);
-    }
-
-    loadSavedData(); // Load the previous time entries
-  }, []);
-
-  // Save the current state of timers and active timer, regardless of active timer
-  useEffect(() => {
-    console.log("Setting up interval to save state");
-    const saveInterval = setInterval(saveStateToLocalStorage, 2000); // Save every 5 seconds
-
-    return () => clearInterval(saveInterval); // Clean up on unmount
-  }, [saveStateToLocalStorage]); // Include saveStateToLocalStorage in the dependency array
-
-  // Update the active timer every 100ms (tenths of a second)
-  useEffect(() => {
+    let interval;
     if (activeTimer) {
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         setTimers(prevTimers => ({
           ...prevTimers,
-          [activeTimer]: (prevTimers[activeTimer] || 0) + 0.1
+          [activeTimer]: (prevTimers[activeTimer] || 0) + 0.1, // Increment by tenths of a second
         }));
-      }, 100); // Update every 100ms
-
-      return () => clearInterval(interval); // Clean up when the timer stops
+      }, 100);
     }
+
+    return () => {
+      clearInterval(interval); // Clean up the interval when the activeTimer changes or component unmounts
+    };
   }, [activeTimer]);
+
+  // Load saved data on component mount
+  useEffect(() => {
+    loadSavedData();
+  }, []);
 
   const loadSavedData = () => {
     const savedEntries = localStorage.getItem('timeEntries');
@@ -86,30 +52,38 @@ const ManufacturingTimerApp = () => {
     }
   };
 
-  const saveTimeEntry = (entry) => {
-    const updatedEntries = [...timeEntries, entry];
+  const saveTimeEntry = (category, duration, label) => {
+    const newEntry = {
+      date: new Date().toLocaleString(),
+      category,
+      duration: roundToTenth(duration), // Round the duration to the nearest tenth of a second
+      label: label || '', // Save empty label if "cancel" is pressed
+    };
+    const updatedEntries = [...timeEntries, newEntry];
     localStorage.setItem('timeEntries', JSON.stringify(updatedEntries));
     setTimeEntries(updatedEntries);
   };
 
-  const handleButtonPress = (category) => {
-    setActiveTimer(activeTimer === category ? null : category);
+  const exportCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,Date,Time,Category,Timer,Label\n";
+    timeEntries.forEach(entry => {
+      csvContent += `${entry.date},${formatTime(entry.duration)},${entry.category},${entry.duration},${entry.label}\n`;
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "time_entries.csv");
+    document.body.appendChild(link);
+    link.click();
   };
 
-  const handleResetTimers = () => {
-    const label = window.prompt("Please enter a label for this entry:");
-    if (label) {
-      const newEntry = {
-        date: new Date().toLocaleString(),
-        timers: { ...timers },
-        label
-      };
-      saveTimeEntry(newEntry);
-      setTimers({});
-      setActiveTimer(null);
-    } else {
-      alert('Label is required to reset timers.');
-    }
+  const deleteAllEntries = () => {
+    localStorage.removeItem('timeEntries');
+    setTimeEntries([]);
+  };
+
+  const roundToTenth = (num) => {
+    return Math.round(num * 10) / 10;
   };
 
   const formatTime = (seconds) => {
@@ -119,74 +93,46 @@ const ManufacturingTimerApp = () => {
     const tenths = Math.floor((seconds % 1) * 10);
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${tenths}`;
   };
+  
 
-  const exportCSV = () => {
-    let csvContent = "data:text/csv;charset=utf-8,Date,Category,Time,Label\n";
-    timeEntries.forEach(entry => {
-      Object.entries(entry.timers).forEach(([category, time]) => {
-        csvContent += `${entry.date},${category},${formatTime(time)},${entry.label}\n`;
-      });
-    });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "time_entries.csv");
-    document.body.appendChild(link); // Required for FF
-    link.click();
+  const handleButtonPress = (category) => {
+    const now = Date.now();
+    const timeElapsed = (now - lastPressTime) / 1000; // Time since the last button press in seconds
+
+    // If there is an active timer and more than 5 seconds have passed, save the entry
+    if (activeTimer && timeElapsed >= MINIMUM_TIMER_DURATION) {
+      const label = window.prompt('Enter label for the previous timer:');
+      // Save the entry even if the label is blank (when user presses "Cancel")
+      saveTimeEntry(activeTimer, timers[activeTimer], label);
+    } else if (activeTimer && timeElapsed < MINIMUM_TIMER_DURATION) {
+      // If less than 5 seconds, revert the timer to the previous value
+      setTimers(prevTimers => ({
+        ...prevTimers,
+        [activeTimer]: previousTimerValue, // Revert to the previous value
+      }));
+    }
+
+    // Start the new timer or stop the active one
+    if (activeTimer !== category) {
+      setPreviousTimerValue(timers[category] || 0); // Store the previous value before resetting
+      setActiveTimer(category);
+    } else {
+      setActiveTimer(null);
+    }
+
+    // Update the last press time
+    setLastPressTime(now);
   };
 
-  const deleteAllEntries = () => {
-    localStorage.removeItem('timeEntries');
-    setTimeEntries([]);
+  const handleResetTimers = () => {
+    setTimers({});
+    setActiveTimer(null);
   };
 
   return (
-    <div style={{
-      paddingTop: '1px', // Reduced top padding
-      paddingBottom: '30px', // Increased bottom padding
-      paddingLeft: '20px',
-      paddingRight: '20px',
-      fontFamily: 'Arial, sans-serif',
-      backgroundColor: '#2c3e50',
-      color: '#ecf0f1',
-      minHeight: '100vh'
-    }}>
-
-    {/* Popup for timer state saved */}
-    {showSavePopup && (
-      <div style={{
-        position: 'fixed',
-        top: '10px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        backgroundColor: 'grey',
-        color: 'white',
-        padding: '10px 20px',
-        borderRadius: '5px',
-        zIndex: 1000,
-        fontSize: '1em',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-        transition: 'opacity 0.5s ease-in-out'
-      }}>
-        Timer state saved
-      </div>
-    )}
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600&display=swap');
-      `}</style>
-
-    <h2 style={{ 
-        fontFamily: 'Titillium Web, sans-serif', 
-        color: '#bdc3c7',
-        marginBottom: '10px' // Add this line to reduce space below the heading
-      }}>Uptime</h2>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
-        gap: '20px',
-        marginBottom: '20px' // Add this line to create space between sections
-      }}>
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', backgroundColor: '#2c3e50', color: '#ecf0f1', minHeight: '100vh' }}>
+      <h2 style={{ fontFamily: 'Titillium Web, sans-serif', color: '#bdc3c7' }}>Uptime</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '20px' }}>
         {uptimeCategories.map((cat) => (
           <TimerButton
             key={cat.name}
@@ -199,17 +145,8 @@ const ManufacturingTimerApp = () => {
         ))}
       </div>
 
-      <h2 style={{ 
-        fontFamily: 'Titillium Web, sans-serif', 
-        color: '#bdc3c7',
-        marginBottom: '10px', // Add this line to reduce space below the heading
-        marginTop: '30px' // Add this line to create space above the heading
-      }}>Downtime</h2>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
-        gap: '20px'
-      }}>
+      <h2 style={{ fontFamily: 'Titillium Web, sans-serif', color: '#bdc3c7', marginTop: '30px' }}>Downtime</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '20px' }}>
         {unuptimeCategories.map((cat) => (
           <TimerButton
             key={cat.name}
@@ -223,9 +160,9 @@ const ManufacturingTimerApp = () => {
       </div>
 
       <ControlPanel
-        handleRequestLabel={handleResetTimers}
-        exportCSV={exportCSV}
-        deleteAllEntries={deleteAllEntries}
+        handleResetTimers={handleResetTimers}
+        exportCSV={exportCSV} // Pass the exportCSV function here
+        deleteAllEntries={deleteAllEntries} // Pass the deleteAllEntries function here
       />
 
       <TimerEntries timeEntries={timeEntries} formatTime={formatTime} />

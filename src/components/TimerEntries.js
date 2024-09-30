@@ -34,16 +34,16 @@ const TimerEntries = ({ timeEntries, formatTime }) => {
               <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>{entry.label}</div>
               <div style={{ fontSize: '0.9em', color: '#bdc3c7', marginBottom: '10px' }}>{entry.date}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                {Object.entries(entry.timers).map(([category, time]) => (
-                  <span key={category} style={{ 
+                {entry.category && (
+                  <span style={{ 
                     backgroundColor: '#2c3e50', 
                     padding: '5px 10px', 
                     borderRadius: '3px',
                     fontSize: '0.9em'
                   }}>
-                    {category}: {formatTime(time)}
+                    {entry.category}: {formatTime(entry.duration)}
                   </span>
-                ))}
+                )}
               </div>
             </li>
           ))}

@@ -1,7 +1,6 @@
 import React from 'react';
 
-const ControlPanel = ({ handleRequestLabel, exportCSV, deleteAllEntries }) => {
-
+const ControlPanel = ({ handleResetTimers, exportCSV, deleteAllEntries }) => {
   // Handles the click of "Delete All Entries" button
   const handleDeleteClick = () => {
     const confirmation = window.confirm("Are you sure you want to delete all entries?");
@@ -20,7 +19,7 @@ const ControlPanel = ({ handleRequestLabel, exportCSV, deleteAllEntries }) => {
     <div style={{ marginTop: '30px', textAlign: 'center' }}>
       {/* Reset Timers Button */}
       <button 
-        onClick={handleRequestLabel} 
+        onClick={handleResetTimers} 
         style={{
           padding: '15px 40px',
           fontSize: '1.5em',
@@ -32,7 +31,7 @@ const ControlPanel = ({ handleRequestLabel, exportCSV, deleteAllEntries }) => {
           cursor: 'pointer'
         }}
       >
-        Save & Reset Timers
+        Reset Timers
       </button>
 
       {/* Download CSV and Delete All Entries Buttons */}
