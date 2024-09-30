@@ -5,7 +5,7 @@ const ControlPanel = ({ handleResetTimers, exportCSV, deleteAllEntries }) => {
   const handleDeleteClick = () => {
     const confirmation = window.confirm("Are you sure you want to delete all entries?");
     if (confirmation) {
-      const password = window.prompt("Please enter password to delete all entries:");
+      const password = window.prompt("Please enter password to delete all entries:", "1234");
       if (password === '1234') {
         deleteAllEntries(); // Call delete function if correct password is entered
         alert('All entries deleted.');
@@ -21,13 +21,12 @@ const ControlPanel = ({ handleResetTimers, exportCSV, deleteAllEntries }) => {
       <button 
         onClick={handleResetTimers} 
         style={{
-          padding: '15px 40px',
-          fontSize: '1.5em',
+          padding: '10px 10px',
+          fontSize: '1.2em',
           backgroundColor: 'yellow',
           color: 'black',
           border: 'none',
           borderRadius: '8px',
-          marginBottom: '20px',
           cursor: 'pointer'
         }}
       >

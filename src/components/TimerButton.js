@@ -1,6 +1,7 @@
+// TimerButton.js
 import React, { useEffect } from 'react';
 
-const TimerButton = ({ category, timer, activeTimer, handleButtonPress, formatTime }) => {
+const TimerButton = ({ category, timer, latestElapsedTime, activeTimer, handleButtonPress, formatTime }) => {
   const isActive = activeTimer === category.name;
 
   const pulseAnimation = {
@@ -24,7 +25,7 @@ const TimerButton = ({ category, timer, activeTimer, handleButtonPress, formatTi
     return () => {
       document.head.removeChild(styleSheet);
     };
-  }, []); // No dependencies needed here since keyframeStyle is defined inside useEffect
+  }, []);
 
   return (
     <button
@@ -54,7 +55,10 @@ const TimerButton = ({ category, timer, activeTimer, handleButtonPress, formatTi
     >
       <span style={{ fontSize: '2.5em' }}>{category.emoji}</span>
       <span>{category.name}</span>
-      <span>{formatTime(timer || 0)}</span>
+      {/* Display latest elapsed time */}
+      <span style={{ fontSize: '.9em' }}>{formatTime(latestElapsedTime || 0)}</span>
+      {/* Display total elapsed time */}
+      {/* <span style={{ fontSize: '.6em' }}>Total: {formatTime(timer || 0)}</span> */}
     </button>
   );
 };
